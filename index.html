@@ -1,0 +1,892 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    
+    <!-- PWA Config -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#0f172a">
+
+    <title>QuickTest AI - Ultimate Edition</title>
+    
+    <!-- Tailwind & Fonts -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Export Libs -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://unpkg.com/docx@7.1.0/build/index.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Prompt', 'sans-serif'], serif: ['Sarabun', 'sans-serif'] },
+                    colors: { 
+                        brand: { 500: '#6366f1', 600: '#4f46e5' },
+                        accent: { 500: '#ec4899', 600: '#db2777' }
+                    },
+                    animation: {
+                        'float': 'float 6s ease-in-out infinite',
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'slide-up': 'slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1)',
+                        'scale-in': 'scaleIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                    },
+                    keyframes: {
+                        float: { '0%, 100%': { transform: 'translateY(0)' }, '50%': { transform: 'translateY(-10px)' } },
+                        slideUp: { '0%': { transform: 'translateY(20px)', opacity: '0' }, '100%': { transform: 'translateY(0)', opacity: '1' } },
+                        scaleIn: { '0%': { transform: 'scale(0.9)', opacity: '0' }, '100%': { transform: 'scale(1)', opacity: '1' } }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Base Styles */
+        body { -webkit-tap-highlight-color: transparent; user-select: none; background-color: #0f172a; height: 100dvh; width: 100vw; overflow: hidden; display: flex; align-items: center; justify-content: center; font-family: 'Prompt', sans-serif; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        
+        /* Glassmorphism */
+        .glass-panel { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.5); }
+        .glass-nav { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(0,0,0,0.05); z-index: 50; }
+        
+        /* Magic Input Glow */
+        .magic-glow { position: relative; z-index: 1; }
+        .magic-glow::before { content: ''; position: absolute; -inset: 2px; background: linear-gradient(45deg, #6366f1, #ec4899, #8b5cf6); z-index: -1; border-radius: 16px; filter: blur(8px); opacity: 0.6; animation: pulse 3s infinite; }
+        
+        /* Custom Radio Button UI */
+        .option-card { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); border: 2px solid transparent; }
+        .option-card.selected { border-color: #6366f1; background-color: #eef2ff; transform: scale(1.01); box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15); }
+        .option-card.correct { border-color: #10b981; background-color: #ecfdf5; }
+        .option-card.wrong { border-color: #ef4444; background-color: #fef2f2; }
+        
+        /* App Shell Dimensions */
+        #app-shell { width: 100%; height: 100%; background: #f8fafc; position: relative; overflow: hidden; display: flex; flex-direction: column; }
+        @media (min-width: 768px) { #app-shell { max-width: 420px; height: 850px; max-height: 90dvh; border-radius: 40px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); border: 4px solid #1e293b; } }
+        
+        /* Segmented Control */
+        .segmented-control { background: #f1f5f9; padding: 4px; border-radius: 12px; display: flex; position: relative; }
+        .segmented-item { flex: 1; text-align: center; padding: 8px; font-size: 12px; font-weight: 600; color: #64748b; z-index: 2; cursor: pointer; transition: color 0.2s; }
+        .segmented-item.active { color: #4f46e5; }
+        .segmented-bg { position: absolute; top: 4px; bottom: 4px; left: 4px; width: calc(33.33% - 5px); background: white; border-radius: 8px; shadow: 0 2px 4px rgba(0,0,0,0.05); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); z-index: 1; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        
+        /* Marquee */
+        .marquee-content { display: flex; gap: 10px; width: max-content; animation: marquee 40s linear infinite; }
+        .marquee-content:hover { animation-play-state: paused; }
+        @keyframes marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+        
+        /* PDF Helper Class */
+        .html2pdf__page-break { page-break-before: always; }
+    </style>
+</head>
+<body>
+
+    <!-- Loading Overlay -->
+    <div id="system-loading" class="hidden fixed inset-0 z-[9999] bg-slate-900/90 backdrop-blur-sm flex flex-col items-center justify-center text-white transition-opacity duration-300">
+        <div class="relative mb-6">
+            <div class="absolute inset-0 bg-indigo-500 rounded-full blur-xl opacity-50 animate-pulse"></div>
+            <div class="w-16 h-16 border-4 border-white/20 border-t-indigo-400 rounded-full animate-spin relative z-10"></div>
+            <div class="absolute inset-0 flex items-center justify-center z-10"><i class="fa-solid fa-wand-magic-sparkles text-indigo-300 animate-pulse"></i></div>
+        </div>
+        <h2 class="text-2xl font-bold tracking-tight" id="loading-title">กำลังร่ายเวทมนตร์...</h2>
+        <p class="text-sm text-slate-400 mt-2 font-light" id="loading-subtitle">กรุณารอสักครู่ AI กำลังทำงาน</p>
+        
+        <div id="loading-steps" class="mt-8 space-y-3 w-[260px]">
+            <div id="step-1" class="flex items-center gap-3 text-sm text-slate-500 transition-all duration-300 p-2 rounded-lg">
+                <div class="w-6 h-6 rounded-full bg-slate-800 flex items-center justify-center shrink-0 transition-colors"><i class="fa-solid fa-globe text-[10px]"></i></div>
+                <span>สืบค้นข้อมูลจริง (Google)</span>
+            </div>
+            <div id="step-2" class="flex items-center gap-3 text-sm text-slate-500 transition-all duration-300 p-2 rounded-lg">
+                <div class="w-6 h-6 rounded-full bg-slate-800 flex items-center justify-center shrink-0 transition-colors"><i class="fa-solid fa-pen-nib text-[10px]"></i></div>
+                <span>วิเคราะห์ระดับความยาก</span>
+            </div>
+            <div id="step-3" class="flex items-center gap-3 text-sm text-slate-500 transition-all duration-300 p-2 rounded-lg">
+                <div class="w-6 h-6 rounded-full bg-slate-800 flex items-center justify-center shrink-0 transition-colors"><i class="fa-solid fa-check text-[10px]"></i></div>
+                <span>สร้างข้อสอบใหม่</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed top-6 left-1/2 -translate-x-1/2 z-[6000] opacity-0 pointer-events-none transition-all duration-300 translate-y-[-20px] bg-slate-800/95 text-white px-5 py-3 rounded-full shadow-xl backdrop-blur-md flex items-center gap-3 text-sm font-medium border border-slate-700/50">
+        <i id="toast-icon" class="fa-solid fa-circle-check text-emerald-400"></i>
+        <span id="toast-msg">สำเร็จ</span>
+    </div>
+
+    <!-- App Shell -->
+    <main id="app-shell">
+        
+        <!-- VIEW 1: SETUP (HOME) -->
+        <section id="view-setup" class="flex flex-col h-full w-full relative bg-slate-50">
+            <!-- Header -->
+            <div class="relative h-[38%] bg-[#0f172a] rounded-b-[40px] overflow-hidden flex flex-col items-center justify-center text-white shadow-2xl shrink-0">
+                <div class="absolute top-[-20%] left-[-20%] w-[140%] h-[140%] bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20"></div>
+                <div class="absolute top-[-50%] left-[20%] w-[300px] h-[300px] bg-indigo-600 rounded-full blur-[100px] opacity-60 animate-float"></div>
+                <div class="absolute bottom-[-20%] right-[-10%] w-[250px] h-[250px] bg-fuchsia-600 rounded-full blur-[80px] opacity-50 animate-float" style="animation-delay: 2s;"></div>
+
+                <div class="relative z-10 flex flex-col items-center text-center px-6">
+                    <div class="w-16 h-16 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center mb-4 shadow-inner border border-white/20 animate-scale-in">
+                        <i class="fa-solid fa-graduation-cap text-3xl text-indigo-300"></i>
+                    </div>
+                    <h1 class="text-3xl font-bold tracking-tight mb-1">QuickTest AI</h1>
+                    <p class="text-indigo-200/80 text-sm font-light tracking-wide">Ultimate Edition</p>
+                    
+                    <div class="flex items-center gap-2 mt-4 bg-white/10 px-4 py-1.5 rounded-full backdrop-blur-md border border-white/10">
+                        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                        <span class="text-[10px] font-bold uppercase tracking-wider text-emerald-100">System Ready</span>
+                    </div>
+                </div>
+
+                <!-- FEATURE: Full Screen Button (Top Left) -->
+                <button onclick="toggleFullScreen()" class="absolute top-6 left-6 w-10 h-10 bg-white/10 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-white/20 transition border border-white/10 z-20 safe-top mt-2" id="btn-fullscreen">
+                    <i class="fa-solid fa-expand text-white text-sm"></i>
+                </button>
+
+                <!-- Settings Button (Top Right) -->
+                <button onclick="toggleSettings()" class="absolute top-6 right-6 w-10 h-10 bg-white/10 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-white/20 transition border border-white/10 z-20 safe-top mt-2">
+                    <i class="fa-solid fa-sliders text-white text-sm"></i>
+                </button>
+            </div>
+
+            <!-- Content -->
+            <div class="flex-1 px-6 -mt-8 relative z-10 flex flex-col pb-safe-bottom overflow-y-auto no-scrollbar">
+                <div class="bg-white rounded-3xl p-6 shadow-xl shadow-indigo-100/50 border border-white mb-6 animate-slide-up">
+                    <label class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 block flex items-center gap-2">
+                        <i class="fa-solid fa-wand-magic-sparkles text-indigo-500"></i> สั่งงานด้วยเสียง/ข้อความ
+                    </label>
+                    <div class="magic-glow rounded-2xl p-[2px]">
+                        <div class="bg-white rounded-2xl flex items-center p-1 relative">
+                            <input type="text" id="input-topic" 
+                                class="w-full pl-4 pr-10 py-3.5 text-base font-semibold text-slate-700 placeholder-slate-300 bg-transparent outline-none" 
+                                placeholder="เช่น ประวัติศาสตร์ไทย 10 ข้อ..."
+                                onkeypress="handleEnter(event)">
+                            <div class="absolute right-3 w-8 h-8 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-500 animate-pulse">
+                                <i class="fa-solid fa-feather-pointed"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="history-area" class="mt-4 flex flex-wrap gap-2 hidden"></div>
+                </div>
+
+                <!-- Settings Panel -->
+                <div id="settings-panel" class="bg-white/80 backdrop-blur-md rounded-2xl p-5 mb-6 border border-slate-100 shadow-lg hidden animate-slide-up">
+                    <div class="mb-5">
+                        <label class="text-[10px] font-bold text-slate-400 uppercase mb-2 block">API Key (Google AI)</label>
+                        <div class="relative">
+                            <input type="password" id="input-api-key" placeholder="วาง API Key ที่นี่..." onchange="saveApiKey(this.value)" 
+                                class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-mono text-slate-600 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition">
+                            <button onclick="toggleKeyVisibility()" class="absolute right-3 top-3 text-slate-400 hover:text-indigo-500"><i class="fa-solid fa-eye"></i></button>
+                        </div>
+                        <div class="flex justify-between items-center mt-2">
+                            <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-[10px] text-indigo-500 underline decoration-dotted">รับ Key ฟรี</a>
+                        </div>
+                    </div>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="text-[10px] font-bold text-slate-400 uppercase mb-2 block">ระดับความยาก (Bloom's Taxonomy)</label>
+                            <div class="segmented-control">
+                                <div class="segmented-bg" id="diff-bg"></div>
+                                <div class="segmented-item" onclick="setDiff(0, 'พื้นฐาน')">พื้นฐาน</div>
+                                <div class="segmented-item active" onclick="setDiff(1, 'ปานกลาง')">ปานกลาง</div>
+                                <div class="segmented-item" onclick="setDiff(2, 'เชี่ยวชาญ')">เชี่ยวชาญ</div>
+                            </div>
+                            <input type="hidden" id="input-difficulty" value="ปานกลาง">
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-bold text-slate-400 uppercase mb-2 block">จำนวนข้อ</label>
+                            <div class="segmented-control">
+                                <div class="segmented-bg" id="count-bg" style="left: 4px;"></div>
+                                <div class="segmented-item active" onclick="setCount(0, '5')">5 ข้อ</div>
+                                <div class="segmented-item" onclick="setCount(1, '10')">10 ข้อ</div>
+                                <div class="segmented-item" onclick="setCount(2, '20')">20 ข้อ</div>
+                            </div>
+                            <input type="hidden" id="input-count" value="5">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Marquee -->
+                <div class="mt-auto mb-6">
+                    <div class="flex items-center gap-2 mb-3 px-1">
+                        <i class="fa-solid fa-fire text-orange-500 text-xs"></i>
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">ยอดนิยมวันนี้</span>
+                    </div>
+                    <div class="overflow-hidden mask-image-linear-gradient w-full">
+                        <div class="marquee-content" id="marquee-trending"></div>
+                    </div>
+                </div>
+
+                <!-- Start Button -->
+                <button onclick="window.generateQuizWrapper()" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-4 rounded-2xl shadow-2xl shadow-indigo-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-3 mb-4 group">
+                    <span class="tracking-wide group-hover:tracking-wider transition-all">เริ่มสร้างข้อสอบ</span>
+                    <div class="w-8 h-8 bg-white/10 rounded-full flex items-center justify-center group-hover:rotate-45 transition-transform"><i class="fa-solid fa-bolt text-yellow-400 text-sm"></i></div>
+                </button>
+            </div>
+        </section>
+
+        <!-- VIEW 2: QUIZ -->
+        <section id="view-quiz" class="hidden flex flex-col h-full bg-slate-50">
+            <div class="glass-nav px-6 py-4 flex justify-between items-center safe-top sticky top-0 shadow-sm">
+                <button onclick="window.confirmExit()" class="w-10 h-10 flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-full transition"><i class="fa-solid fa-xmark text-lg"></i></button>
+                <div class="flex flex-col items-center">
+                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">QUESTION</span>
+                    <div class="flex items-baseline gap-1">
+                        <span class="text-xl font-bold text-indigo-600 tabular-nums" id="q-current">1</span>
+                        <span class="text-slate-300 text-sm font-medium">/</span>
+                        <span class="text-slate-400 text-sm font-medium tabular-nums" id="q-total">5</span>
+                    </div>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="window.exportPDF()" class="w-10 h-10 flex items-center justify-center text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-full transition shadow-sm border border-rose-100" title="PDF"><i class="fa-solid fa-file-pdf"></i></button>
+                    <button onclick="window.exportDOCX()" class="w-10 h-10 flex items-center justify-center text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-full transition shadow-sm border border-blue-100" title="Word"><i class="fa-solid fa-file-word"></i></button>
+                </div>
+            </div>
+
+            <div class="h-1.5 w-full bg-slate-200/50">
+                <div id="progress-bar" class="h-full bg-gradient-to-r from-indigo-500 to-fuchsia-500 transition-all duration-500 w-[0%] rounded-r-full shadow-[0_0_10px_rgba(99,102,241,0.5)]"></div>
+            </div>
+
+            <div class="flex-1 overflow-y-auto no-scrollbar p-6 pb-32">
+                <div class="bg-white p-6 rounded-3xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.05)] border border-slate-100 mb-6 animate-slide-up">
+                    <div class="flex items-center gap-2 mb-4">
+                        <div class="px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-100 flex items-center gap-1.5">
+                            <i class="fa-solid fa-check-circle text-emerald-500 text-[10px]"></i>
+                            <span class="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">AI Verified Fact</span>
+                        </div>
+                    </div>
+                    <h3 id="quiz-question" class="text-lg font-semibold text-slate-800 leading-relaxed font-serif">Loading...</h3>
+                </div>
+                <div id="quiz-options" class="space-y-3"></div>
+            </div>
+
+            <div class="absolute bottom-0 left-0 w-full bg-white/90 backdrop-blur-xl border-t border-slate-100 p-6 safe-bottom shadow-[0_-10px_40px_rgba(0,0,0,0.05)]">
+                <button id="btn-submit" onclick="window.submitAnswer()" class="w-full bg-slate-900 text-white font-bold py-4 rounded-2xl shadow-lg active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-base">
+                    ยืนยันคำตอบ <i class="fa-solid fa-check"></i>
+                </button>
+                <button id="btn-next" onclick="window.nextQuestion()" class="hidden w-full bg-gradient-to-r from-indigo-600 to-fuchsia-600 text-white font-bold py-4 rounded-2xl shadow-lg shadow-indigo-200 active:scale-[0.98] transition-all flex items-center justify-center gap-2 text-base">
+                    ข้อต่อไป <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </div>
+        </section>
+
+        <!-- VIEW 3: RESULT -->
+        <section id="view-result" class="hidden flex flex-col h-full bg-white overflow-hidden">
+            <canvas id="confetti-canvas" class="absolute inset-0 w-full h-full pointer-events-none z-0"></canvas>
+            <div class="flex-1 flex flex-col items-center justify-center p-8 text-center relative z-10">
+                <div class="relative mb-8 animate-scale-in">
+                    <svg class="w-64 h-64 transform -rotate-90 drop-shadow-2xl" viewBox="0 0 100 100">
+                        <circle cx="50" cy="50" r="42" fill="none" stroke="#f1f5f9" stroke-width="6" stroke-linecap="round" />
+                        <circle id="score-ring" cx="50" cy="50" r="42" fill="none" stroke="#4F46E5" stroke-width="6" stroke-dasharray="264" stroke-dashoffset="264" stroke-linecap="round" class="transition-all duration-[2s] ease-out"/>
+                    </svg>
+                    <div class="absolute top-0 left-0 w-full h-full flex flex-col items-center justify-center">
+                        <div class="text-7xl font-black text-transparent bg-clip-text bg-gradient-to-br from-indigo-600 to-fuchsia-600 tracking-tighter" id="result-score">0</div>
+                        <span class="text-[10px] text-slate-400 font-bold uppercase mt-2 tracking-widest bg-slate-50 px-3 py-1 rounded-full border border-slate-100">คะแนนรวม</span>
+                    </div>
+                    <div id="result-badge" class="absolute -top-4 -right-4 w-16 h-16 bg-yellow-400 rounded-full flex items-center justify-center text-white shadow-lg border-4 border-white transform rotate-12 hidden animate-bounce">
+                        <i class="fa-solid fa-crown text-2xl"></i>
+                    </div>
+                </div>
+
+                <h2 id="result-title" class="text-3xl font-bold text-slate-800 mb-3">ยอดเยี่ยม!</h2>
+                <p id="result-desc" class="text-slate-500 max-w-[280px] leading-relaxed text-sm">คุณมีความเข้าใจในหัวข้อนี้เป็นอย่างดีเยี่ยม</p>
+            </div>
+
+            <div class="p-6 safe-bottom bg-slate-50 rounded-t-[40px] shadow-[0_-10px_60px_rgba(0,0,0,0.05)] space-y-3 border-t border-slate-100 relative z-20">
+                <div class="grid grid-cols-2 gap-3">
+                    <button onclick="window.exportPDF()" class="w-full bg-white border border-slate-200 text-slate-600 font-bold py-3.5 rounded-xl hover:bg-rose-50 hover:border-rose-200 hover:text-rose-600 transition flex items-center justify-center gap-2 text-sm"><i class="fa-solid fa-file-pdf text-lg"></i> PDF</button>
+                    <button onclick="window.exportDOCX()" class="w-full bg-white border border-slate-200 text-slate-600 font-bold py-3.5 rounded-xl hover:bg-blue-50 hover:border-blue-200 hover:text-blue-600 transition flex items-center justify-center gap-2 text-sm"><i class="fa-solid fa-file-word text-lg"></i> Word</button>
+                </div>
+                <button onclick="window.showReview()" class="w-full bg-indigo-50 border border-indigo-100 text-indigo-600 font-bold py-4 rounded-2xl hover:bg-indigo-100 active:scale-[0.98] transition flex items-center justify-center gap-2"><i class="fa-solid fa-list-check"></i> ดูเฉลยละเอียด</button>
+                <div class="grid grid-cols-2 gap-3">
+                    <button onclick="window.restartApp()" class="w-full bg-white border border-slate-200 text-slate-500 font-bold py-4 rounded-2xl text-sm">หน้าหลัก</button>
+                    <button onclick="window.generateQuizWrapper()" class="w-full bg-slate-900 text-white font-bold py-4 rounded-2xl shadow-lg text-sm">ทำต่อ</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- VIEW 4: REVIEW -->
+        <section id="view-review" class="hidden flex flex-col h-full bg-slate-50">
+            <div class="glass-nav px-6 py-4 flex items-center gap-4 safe-top sticky top-0 shadow-sm">
+                <button onclick="window.backToResult()" class="w-10 h-10 flex items-center justify-center text-slate-500 hover:bg-slate-100 rounded-full transition"><i class="fa-solid fa-arrow-left"></i></button>
+                <h2 class="text-lg font-bold text-slate-800">เฉลยและคำอธิบาย</h2>
+            </div>
+            <div id="review-list" class="flex-1 overflow-y-auto p-6 space-y-6 pb-safe-bottom no-scrollbar"></div>
+        </section>
+    </main>
+
+    <script type="module">
+        // --- IMPORTS & STATE ---
+        const { Document, Packer, Paragraph, TextRun, AlignmentType, HeadingLevel, PageBreak, Table, TableRow, TableCell, WidthType, BorderStyle } = docx;
+        let state = { questions: [], currentIndex: 0, score: 0, selectedOption: null, userAnswers: [], isAnswered: false, currentTopic: "" };
+        
+        const topics = [
+            {i:"🤖",t:"AI"}, {i:"🌏",t:"Climate"}, {i:"💰",t:"Crypto"}, {i:"🎬",t:"Soft Power"}, {i:"🔋",t:"EV"}, {i:"🚀",t:"SpaceX"}, {i:"🧬",t:"DNA"}, {i:"🧠",t:"Psych"}, {i:"🏛️",t:"History"}, {i:"⚖️",t:"Law"}
+        ];
+
+        // --- DOM HELPERS ---
+        const dom = {
+            views: { setup: document.getElementById('view-setup'), loading: document.getElementById('system-loading'), quiz: document.getElementById('view-quiz'), result: document.getElementById('view-result'), review: document.getElementById('view-review') },
+            inputs: { topic: document.getElementById('input-topic'), difficulty: document.getElementById('input-difficulty'), count: document.getElementById('input-count'), apiKey: document.getElementById('input-api-key') },
+            quiz: { question: document.getElementById('quiz-question'), options: document.getElementById('quiz-options'), current: document.getElementById('q-current'), total: document.getElementById('q-total'), progress: document.getElementById('progress-bar'), btnSubmit: document.getElementById('btn-submit'), btnNext: document.getElementById('btn-next') },
+            result: { score: document.getElementById('result-score'), ring: document.getElementById('score-ring'), title: document.getElementById('result-title'), desc: document.getElementById('result-desc'), badge: document.getElementById('result-badge') },
+            review: { list: document.getElementById('review-list') },
+            loading: { title: document.getElementById('loading-title'), subtitle: document.getElementById('loading-subtitle') },
+            history: { area: document.getElementById('history-area') }
+        };
+
+        // --- INITIALIZATION ---
+        function initApp() {
+            initMarquee();
+            initSegmentedControls();
+            loadApiKey();
+            renderHistoryChips();
+            dom.inputs.topic.addEventListener('input', () => renderHistoryChips());
+            
+            // Auto focus for better UX
+            setTimeout(() => dom.inputs.topic.focus(), 500);
+        }
+
+        // --- FULL SCREEN FEATURE ---
+        window.toggleFullScreen = () => {
+            const btn = document.getElementById('btn-fullscreen');
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => showToast('ไม่สามารถเต็มจอได้: ' + err.message, 'error'));
+                btn.innerHTML = '<i class="fa-solid fa-compress text-white text-sm"></i>';
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                    btn.innerHTML = '<i class="fa-solid fa-expand text-white text-sm"></i>';
+                }
+            }
+        };
+
+        // --- NAVIGATION & UTILS ---
+        function switchView(id) {
+            Object.values(dom.views).forEach(el => el.classList.add('hidden'));
+            if(id === 'loading') dom.views.loading.classList.remove('hidden');
+            else {
+                dom.views.loading.classList.add('hidden');
+                dom.views[id].classList.remove('hidden');
+            }
+        }
+
+        function showToast(msg, type='success') {
+            const t = document.getElementById('toast');
+            const i = document.getElementById('toast-icon');
+            const m = document.getElementById('toast-msg');
+            m.textContent = msg;
+            i.className = type==='success' ? "fa-solid fa-circle-check text-emerald-400" : "fa-solid fa-circle-exclamation text-rose-400";
+            t.classList.remove('opacity-0', 'translate-y-[-20px]');
+            setTimeout(() => t.classList.add('opacity-0', 'translate-y-[-20px]'), 3000);
+        }
+
+        window.handleEnter = (e) => { if(e.key === 'Enter') window.generateQuizWrapper(); }
+
+        // --- UI CONTROLS ---
+        window.setDiff = (idx, val) => {
+            document.getElementById('input-difficulty').value = val;
+            const items = document.querySelectorAll('#settings-panel .segmented-control:first-of-type .segmented-item');
+            items.forEach(el => el.classList.remove('active'));
+            items[idx].classList.add('active');
+            document.getElementById('diff-bg').style.transform = `translateX(${idx * 100}%)`;
+        };
+
+        window.setCount = (idx, val) => {
+            document.getElementById('input-count').value = val;
+            const items = document.querySelectorAll('#settings-panel .segmented-control:last-of-type .segmented-item');
+            items.forEach(el => el.classList.remove('active'));
+            items[idx].classList.add('active');
+            document.getElementById('count-bg').style.transform = `translateX(${idx * 100}%)`;
+        };
+
+        function initSegmentedControls() {
+            window.setDiff(1, 'ปานกลาง');
+            window.setCount(0, '5');
+        }
+
+        function initMarquee() {
+            const c = document.getElementById('marquee-trending');
+            const list = [...topics, ...topics]; // Duplicate for smooth loop
+            c.innerHTML = list.map(t => `
+                <button onclick="window.setTopic('${t.t}')" class="shrink-0 px-4 py-1.5 bg-white border border-slate-100 rounded-full text-xs font-bold text-slate-500 hover:text-indigo-600 hover:border-indigo-200 transition shadow-sm flex items-center gap-2">
+                    <span>${t.i}</span> ${t.t}
+                </button>
+            `).join('');
+        }
+
+        window.toggleSettings = () => document.getElementById('settings-panel').classList.toggle('hidden');
+        window.saveApiKey = (v) => { localStorage.setItem('quicktest_api_key', v.trim()); showToast(v?'บันทึกแล้ว':'ลบแล้ว'); };
+        window.loadApiKey = () => { const k = localStorage.getItem('quicktest_api_key'); if(k) dom.inputs.apiKey.value = k; };
+        window.toggleKeyVisibility = () => { const el = dom.inputs.apiKey; el.type = el.type==='password'?'text':'password'; };
+        window.setTopic = (t) => { dom.inputs.topic.value = t; dom.inputs.topic.focus(); renderHistoryChips(); };
+        window.restartApp = () => { dom.inputs.topic.value=''; switchView('setup'); };
+        window.backToResult = () => switchView('result');
+        window.confirmExit = () => { if(confirm('ต้องการออกจากข้อสอบ?')) window.restartApp(); };
+
+        // --- HISTORY SYSTEM ---
+        function getHistory(topic) { 
+            if(!topic) return [];
+            const key = `qt_hist_${topic.trim().toLowerCase()}`; 
+            return JSON.parse(localStorage.getItem(key) || '[]'); 
+        }
+        function saveHistory(topic, questions) {
+            if(!topic) return;
+            const key = `qt_hist_${topic.trim().toLowerCase()}`;
+            const old = getHistory(topic);
+            const newConcepts = questions.map(q => q.concept || q.question.substring(0,15));
+            // Limit history to last 50 items to save space
+            const merged = [...new Set([...old, ...newConcepts])].slice(-50);
+            localStorage.setItem(key, JSON.stringify(merged));
+        }
+        function renderHistoryChips() {
+            const topic = dom.inputs.topic.value.trim();
+            const area = dom.history.area;
+            if(!topic) { area.classList.add('hidden'); return; }
+            
+            const hist = getHistory(topic);
+            if(hist.length === 0) { area.classList.add('hidden'); return; }
+
+            area.classList.remove('hidden');
+            area.innerHTML = `
+                <div class="text-[10px] text-slate-400 w-full flex justify-between">
+                    <span>เรียนไปแล้ว ${hist.length} เรื่อง (AI จะไม่ออกซ้ำ)</span>
+                    <button onclick="window.clearHistory('${topic}')" class="text-rose-400 hover:underline">ล้างประวัติ</button>
+                </div>
+            `;
+        }
+        window.clearHistory = (t) => { localStorage.removeItem(`qt_hist_${t.trim().toLowerCase()}`); renderHistoryChips(); showToast('ลบประวัติแล้ว'); };
+
+        // --- AI LOGIC (IMPROVED) ---
+        function updateLoadingUI(step) {
+            const steps = [1, 2, 3];
+            steps.forEach(s => {
+                const el = document.getElementById(`step-${s}`);
+                const icon = el.querySelector('div');
+                const text = el.querySelector('span');
+                
+                if (s < step) { 
+                    icon.className = "w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center shrink-0 transition-colors";
+                    icon.innerHTML = '<i class="fa-solid fa-check text-white text-[10px]"></i>';
+                    text.className = "text-emerald-400 font-bold";
+                    el.classList.remove('opacity-50');
+                } else if (s === step) {
+                    icon.className = "w-6 h-6 rounded-full bg-indigo-500 flex items-center justify-center shrink-0 transition-colors animate-pulse";
+                    icon.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-white text-[10px]"></i>';
+                    text.className = "text-white font-bold";
+                    el.classList.remove('opacity-50');
+                } else {
+                    icon.className = "w-6 h-6 rounded-full bg-slate-800 flex items-center justify-center shrink-0 transition-colors";
+                    text.className = "text-slate-500";
+                    el.classList.add('opacity-50');
+                    const iClass = s===1?'fa-globe':s===2?'fa-pen-nib':'fa-check';
+                    icon.innerHTML = `<i class="fa-solid ${iClass} text-[10px]"></i>`;
+                }
+            });
+        }
+
+        window.generateQuizWrapper = async () => { await generateQuiz(0); };
+
+        async function generateQuiz(retryCount) {
+            const topic = dom.inputs.topic.value.trim();
+            const apiKey = dom.inputs.apiKey.value.trim();
+            
+            if(!apiKey) { 
+                document.getElementById('settings-panel').classList.remove('hidden'); 
+                dom.inputs.apiKey.focus(); 
+                return showToast('กรุณาใส่ API Key ก่อนครับ', 'error'); 
+            }
+            if(!topic) return showToast('กรุณาพิมพ์หัวข้อ', 'error');
+
+            state.currentTopic = topic;
+            
+            if(retryCount === 0) {
+                switchView('loading');
+                updateLoadingUI(1);
+            }
+
+            const hist = getHistory(topic).slice(-30).join(', ');
+            const qty = dom.inputs.count.value;
+            const diff = dom.inputs.difficulty.value;
+
+            // EXPERT PROMPT ENGINEERING: Bloom's Taxonomy Integration
+            let taxonomyInstruction = "";
+            if (diff === "พื้นฐาน") {
+                taxonomyInstruction = "Focus on Bloom's Taxonomy levels: Remember and Understand. Ask for definitions, facts, and basic concepts.";
+            } else if (diff === "ปานกลาง") {
+                taxonomyInstruction = "Focus on Bloom's Taxonomy levels: Apply and Analyze. Ask users to apply knowledge to new situations or draw connections.";
+            } else { // เชี่ยวชาญ
+                taxonomyInstruction = "Focus on Bloom's Taxonomy levels: Evaluate and Create. Ask for judgments, critiques, or complex synthesis of multiple concepts.";
+            }
+
+            const prompt = `
+            Role: Expert Thai Education AI (QuickTest).
+            Task: Generate a ${qty}-question multiple-choice quiz on "${topic}".
+            Difficulty Level: ${diff}.
+            Instruction: ${taxonomyInstruction}
+            Context: User has already seen these concepts: [${hist}]. DO NOT REPEAT THEM. Generate FRESH, UNIQUE content.
+            
+            Constraints:
+            1. Language: THAI only (except specific technical terms).
+            2. Format: Valid JSON Array ONLY. NO markdown code blocks (no \`\`\`).
+            3. Structure: [{"question":"String","options":["String","String","String","String"],"correctIndex":Integer(0-3),"explanation":"String (Detailed reasoning)","concept":"String (Short tag)"}]
+            4. Accuracy: Verify facts using Google Search tool if necessary. Ensure 100% correctness.
+            `;
+
+            try {
+                if(retryCount===0) setTimeout(() => updateLoadingUI(2), 2000);
+
+                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: prompt }] }],
+                        tools: [{ google_search: {} }]
+                    })
+                });
+
+                const data = await res.json();
+                if(data.error) throw new Error(data.error.message);
+
+                const txt = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+                
+                // Enhanced Parsing Logic (Robust against Markdown)
+                let jsonStr = txt;
+                // Remove Markdown Code Blocks if present
+                jsonStr = jsonStr.replace(/^```json\s*/, '').replace(/^```\s*/, '').replace(/\s*```$/, '');
+                
+                // Try to find Array Pattern
+                const match = jsonStr.match(/\[[\s\S]*\]/);
+                if(match) jsonStr = match[0];
+                else {
+                     // Fallback for single object response
+                     if(txt.includes('{')) {
+                        const m = txt.match(/\{[\s\S]*\}/);
+                        if(m) jsonStr = `[${m[0]}]`;
+                     }
+                }
+
+                if(!jsonStr) throw new Error("AI response format invalid");
+                
+                // Fix common JSON trailing comma errors
+                jsonStr = jsonStr.replace(/,\s*]/g, ']').replace(/,\s*}/g, '}');
+                
+                state.questions = JSON.parse(jsonStr);
+                
+                if(!state.questions.length) throw new Error("Empty questions received");
+
+                updateLoadingUI(3);
+                saveHistory(topic, state.questions);
+                setTimeout(() => startQuiz(), 1000);
+
+            } catch(e) {
+                console.error("Generation Error:", e);
+                if(retryCount < 2) {
+                    console.log(`Retrying (${retryCount+1}/2)...`);
+                    await generateQuiz(retryCount + 1);
+                } else {
+                    showToast('เกิดข้อผิดพลาด: ' + e.message, 'error');
+                    switchView('setup');
+                }
+            }
+        }
+
+        // --- GAMEPLAY LOGIC ---
+        function startQuiz() {
+            state.currentIndex = 0;
+            state.score = 0;
+            state.userAnswers = new Array(state.questions.length).fill(null);
+            dom.quiz.total.textContent = state.questions.length;
+            switchView('quiz');
+            renderQuestion();
+        }
+
+        function renderQuestion() {
+            const q = state.questions[state.currentIndex];
+            state.isAnswered = false;
+            state.selectedOption = null;
+            
+            dom.quiz.current.textContent = state.currentIndex + 1;
+            const pct = ((state.currentIndex) / state.questions.length) * 100;
+            dom.quiz.progress.style.width = `${pct}%`;
+            
+            dom.quiz.question.textContent = q.question;
+            
+            // Re-trigger Animation
+            const container = dom.quiz.question.parentElement;
+            container.classList.remove('animate-slide-up');
+            void container.offsetWidth; 
+            container.classList.add('animate-slide-up');
+
+            dom.quiz.options.innerHTML = q.options.map((opt, i) => `
+                <div onclick="window.selectOption(${i})" class="option-card bg-white rounded-2xl p-4 flex items-center gap-4 cursor-pointer shadow-sm hover:bg-slate-50 group animate-slide-up" style="animation-delay: ${i * 50}ms">
+                    <div class="w-8 h-8 rounded-full border-2 border-slate-200 flex items-center justify-center text-xs font-bold text-slate-400 group-hover:border-indigo-300 group-hover:text-indigo-500 transition-colors indicator-dot">
+                        ${['A','B','C','D'][i]}
+                    </div>
+                    <span class="text-slate-700 font-medium text-sm flex-1">${opt}</span>
+                </div>
+            `).join('');
+
+            dom.quiz.btnSubmit.classList.remove('hidden');
+            dom.quiz.btnSubmit.disabled = true;
+            dom.quiz.btnSubmit.classList.add('opacity-50', 'cursor-not-allowed');
+            dom.quiz.btnNext.classList.add('hidden');
+        }
+
+        window.selectOption = (idx) => {
+            if(state.isAnswered) return;
+            state.selectedOption = idx;
+            
+            const cards = document.querySelectorAll('.option-card');
+            cards.forEach((c, i) => {
+                if(i === idx) {
+                    c.classList.add('selected');
+                    c.querySelector('.indicator-dot').className = "w-8 h-8 rounded-full bg-indigo-500 text-white flex items-center justify-center text-xs font-bold shadow-lg transform scale-110 transition-transform indicator-dot";
+                } else {
+                    c.classList.remove('selected');
+                    c.querySelector('.indicator-dot').className = "w-8 h-8 rounded-full border-2 border-slate-200 flex items-center justify-center text-xs font-bold text-slate-400 indicator-dot";
+                }
+            });
+
+            dom.quiz.btnSubmit.disabled = false;
+            dom.quiz.btnSubmit.classList.remove('opacity-50', 'cursor-not-allowed');
+        };
+
+        window.submitAnswer = () => {
+            if(state.isAnswered) return;
+            state.isAnswered = true;
+            
+            const q = state.questions[state.currentIndex];
+            const correct = state.selectedOption === q.correctIndex;
+            if(correct) state.score++;
+            
+            state.userAnswers[state.currentIndex] = { selected: state.selectedOption, correctIndex: q.correctIndex, isCorrect: correct };
+
+            const cards = document.querySelectorAll('.option-card');
+            cards.forEach((c, i) => {
+                c.onclick = null; 
+                if(i === q.correctIndex) {
+                    c.className = "option-card correct rounded-2xl p-4 flex items-center gap-4 shadow-md border-2";
+                    c.querySelector('.indicator-dot').innerHTML = '<i class="fa-solid fa-check"></i>';
+                    c.querySelector('.indicator-dot').className = "w-8 h-8 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-lg";
+                } else if (i === state.selectedOption && !correct) {
+                    c.className = "option-card wrong rounded-2xl p-4 flex items-center gap-4 shadow-md border-2";
+                    c.querySelector('.indicator-dot').innerHTML = '<i class="fa-solid fa-xmark"></i>';
+                    c.querySelector('.indicator-dot').className = "w-8 h-8 rounded-full bg-rose-500 text-white flex items-center justify-center shadow-lg";
+                } else {
+                    c.classList.add('opacity-40');
+                }
+            });
+
+            const pct = ((state.currentIndex + 1) / state.questions.length) * 100;
+            dom.quiz.progress.style.width = `${pct}%`;
+
+            dom.quiz.btnSubmit.classList.add('hidden');
+            dom.quiz.btnNext.classList.remove('hidden');
+        };
+
+        window.nextQuestion = () => {
+            state.currentIndex++;
+            if(state.currentIndex < state.questions.length) renderQuestion();
+            else showResult();
+        };
+
+        function showResult() {
+            switchView('result');
+            const pct = (state.score / state.questions.length) * 100;
+            
+            let start = 0;
+            const duration = 1500;
+            const stepTime = Math.abs(Math.floor(duration / (state.score || 1)));
+            
+            if(state.score > 0) {
+                const timer = setInterval(() => {
+                    start++;
+                    dom.result.score.textContent = start;
+                    if(start === state.score) clearInterval(timer);
+                }, stepTime);
+            } else {
+                dom.result.score.textContent = 0;
+            }
+
+            setTimeout(() => {
+                const offset = (2 * Math.PI * 42) - (pct / 100) * (2 * Math.PI * 42);
+                dom.result.ring.style.strokeDashoffset = offset;
+                
+                let color, title, desc;
+                if(pct >= 80) {
+                    color = "#4F46E5"; title = "สุดยอด! 🎉"; desc = "คุณคือผู้เชี่ยวชาญตัวจริง!";
+                    dom.result.badge.classList.remove('hidden');
+                    spawnConfetti();
+                } else if (pct >= 50) {
+                    color = "#F59E0B"; title = "ทำได้ดี"; desc = "พื้นฐานดีแล้ว พยายามอีกนิด";
+                    dom.result.badge.classList.add('hidden');
+                } else {
+                    color = "#EF4444"; title = "สู้ๆ นะ"; desc = "ลองทบทวนบทเรียนแล้วมาใหม่";
+                    dom.result.badge.classList.add('hidden');
+                }
+                dom.result.ring.style.stroke = color;
+                dom.result.title.textContent = title;
+                dom.result.title.style.color = color;
+                dom.result.desc.textContent = desc;
+            }, 300);
+        }
+
+        // --- EXPORT PDF (ROBUST) ---
+        window.exportPDF = async () => {
+            if (state.questions.length === 0) return;
+            showToast('กำลังสร้าง PDF... (กรุณารอสักครู่)', 'success');
+
+            const tempContainer = document.createElement('div');
+            // Create off-screen container for rendering
+            Object.assign(tempContainer.style, {
+                position: 'absolute', left: '-9999px', top: '0',
+                width: '210mm', minHeight: '297mm', 
+                backgroundColor: '#ffffff', zIndex: '-1'
+            });
+
+            tempContainer.innerHTML = `
+                <style>
+                    @import url('[https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap](https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap)');
+                    .pdf-wrapper { font-family: 'Sarabun', sans-serif; color: #000000; line-height: 1.5; padding: 20mm; box-sizing: border-box; }
+                    .pdf-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px double #cbd5e1; padding-bottom: 15px; margin-bottom: 25px; }
+                    .brand-title { font-size: 24px; font-weight: 700; color: #4f46e5; text-transform: uppercase; }
+                    .brand-sub { font-size: 14px; color: #64748b; }
+                    .meta-badge { background: #f1f5f9; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: 600; color: #334155; margin-bottom: 4px; display: inline-block; }
+                    .student-box { border: 1px solid #94a3b8; border-radius: 8px; padding: 15px; display: flex; justify-content: space-between; margin-bottom: 30px; background-color: #f8fafc; }
+                    .question-item { margin-bottom: 20px; page-break-inside: avoid; }
+                    .q-text { font-size: 15px; font-weight: 600; margin-bottom: 8px; color: #1e293b; }
+                    .options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding-left: 15px; }
+                    .key-card { border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px; margin-bottom: 10px; page-break-inside: avoid; background: #fff; }
+                    .key-correct { color: #166534; font-weight: 700; }
+                </style>
+                <div class="pdf-wrapper">
+                    <div class="pdf-header">
+                        <div><div class="brand-title">QuickTest AI</div><div class="brand-sub">วิชา: ${state.currentTopic}</div></div>
+                        <div style="text-align: right;"><div class="meta-badge">จำนวน: ${state.questions.length} ข้อ</div><br><div class="meta-badge">คะแนนเต็ม: ${state.questions.length} คะแนน</div></div>
+                    </div>
+                    <div class="student-box">
+                        <div style="font-weight: 600;">ชื่อ-นามสกุล: _____________________________</div>
+                        <div style="font-weight: 600;">เลขที่: _________</div>
+                    </div>
+                    ${state.questions.map((q, i) => `
+                        <div class="question-item">
+                            <div class="q-text">${i + 1}. ${q.question}</div>
+                            <div class="options-grid">${q.options.map((o, idx) => `<div style="font-size: 14px;"><span style="font-weight: 600; margin-right: 5px;">${['ก', 'ข', 'ค', 'ง'][idx]})</span> ${o}</div>`).join('')}</div>
+                        </div>
+                    `).join('')}
+                    <div class="html2pdf__page-break"></div>
+                    <div class="pdf-header"><div class="brand-title" style="color: #166534; font-size: 20px;">เฉลยคำตอบ</div></div>
+                    ${state.questions.map((q, i) => `
+                        <div class="key-card">
+                            <div style="display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 5px;"><span style="font-weight: 700;">ข้อ ${i + 1}</span><span class="key-correct">ตอบ: ${['ก', 'ข', 'ค', 'ง'][q.correctIndex]}</span></div>
+                            <div style="font-size: 13px; color: #475569; background: #f8fafc; padding: 8px; border-radius: 4px;">${q.explanation}</div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+
+            document.body.appendChild(tempContainer);
+            try { await document.fonts.ready; } catch (e) {}
+
+            html2pdf().set({
+                margin: [10, 10, 10, 10], 
+                filename: `Exam_${state.currentTopic}.pdf`,
+                image: { type: 'jpeg', quality: 1.0 },
+                html2canvas: { scale: 2, useCORS: true, scrollY: 0, windowWidth: 800 },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            }).from(tempContainer).save().then(() => {
+                document.body.removeChild(tempContainer); 
+                showToast('ดาวน์โหลดสำเร็จ!');
+            }).catch(err => {
+                console.error(err);
+                document.body.removeChild(tempContainer); 
+                showToast('เกิดข้อผิดพลาดในการสร้าง PDF', 'error');
+            });
+        };
+
+        // --- EXPORT DOCX (ROBUST) ---
+        window.exportDOCX = () => {
+            showToast('กำลังสร้าง Word Format โปร...', 'success');
+            const noBorder = { style: BorderStyle.NONE, size: 0, color: "FFFFFF" };
+            setTimeout(() => {
+                const doc = new Document({
+                    sections: [{
+                        properties: {},
+                        children: [
+                            new Table({
+                                width: { size: 100, type: WidthType.PERCENTAGE },
+                                borders: { top: noBorder, bottom: noBorder, left: noBorder, right: noBorder, insideVertical: noBorder, insideHorizontal: noBorder },
+                                rows: [ new TableRow({ children: [
+                                    new TableCell({ children: [ new Paragraph({ text: "QuickTest AI Exam", heading: HeadingLevel.HEADING_1 }), new Paragraph({ text: `วิชา: ${state.currentTopic}`, spacing: { after: 100 } }) ], width: { size: 70, type: WidthType.PERCENTAGE } }),
+                                    new TableCell({ children: [ new Paragraph({ text: "คะแนนเต็ม: ____", alignment: AlignmentType.RIGHT }), new Paragraph({ text: `${state.questions.length} ข้อ`, alignment: AlignmentType.RIGHT }) ], width: { size: 30, type: WidthType.PERCENTAGE } })
+                                ]}) ]
+                            }),
+                            new Paragraph({ text: "", spacing: { after: 200 } }), 
+                            new Table({
+                                width: { size: 100, type: WidthType.PERCENTAGE },
+                                borders: { top: { style: BorderStyle.SINGLE, size: 2 }, bottom: { style: BorderStyle.SINGLE, size: 2 }, left: { style: BorderStyle.SINGLE, size: 2 }, right: { style: BorderStyle.SINGLE, size: 2 } },
+                                rows: [ new TableRow({ children: [
+                                    new TableCell({ children: [new Paragraph({ text: "ชื่อ-นามสกุล: _____________________________________" })], width: { size: 60, type: WidthType.PERCENTAGE }, margins: { top: 100, bottom: 100, left: 100 } }),
+                                    new TableCell({ children: [new Paragraph({ text: "เลขที่: ______" })], width: { size: 40, type: WidthType.PERCENTAGE }, margins: { top: 100, bottom: 100, left: 100 } })
+                                ]}) ]
+                            }),
+                            new Paragraph({ text: "", spacing: { after: 400 } }),
+                            ...state.questions.flatMap((q, i) => [
+                                new Paragraph({ children: [ new TextRun({ text: `${i + 1}. ${q.question}`, bold: true, size: 28 }) ], spacing: { before: 200, after: 100 } }),
+                                ...q.options.map((o, idx) => new Paragraph({ text: `     ${['ก', 'ข', 'ค', 'ง'][idx]}. ${o}`, spacing: { after: 50 } })),
+                                new Paragraph({ text: "" }) 
+                            ]),
+                            new Paragraph({ children: [new PageBreak()] }),
+                            new Paragraph({ text: "เฉลยและคำอธิบาย", heading: HeadingLevel.HEADING_1, alignment: AlignmentType.CENTER, spacing: { after: 300 } }),
+                            ...state.questions.map((q, i) => new Paragraph({ children: [ new TextRun({ text: `ข้อ ${i + 1}. ตอบ ${['ก', 'ข', 'ค', 'ง'][q.correctIndex]}`, bold: true, color: "2E7D32" }), new TextRun({ text: ` - ${q.explanation}`, italics: true }) ], spacing: { after: 150 }, border: { bottom: { style: BorderStyle.DOTTED, size: 1, space: 1, color: "CCCCCC" } } }))
+                        ]
+                    }]
+                });
+                Packer.toBlob(doc).then(blob => saveAs(blob, `Exam_${state.currentTopic}.docx`));
+            }, 100);
+        };
+
+        window.showReview = () => {
+            switchView('review');
+            dom.review.list.innerHTML = state.questions.map((q, i) => {
+                const ans = state.userAnswers[i] || {};
+                return `
+                    <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
+                        <div class="flex justify-between mb-2">
+                            <span class="text-xs font-bold text-slate-400">ข้อที่ ${i+1}</span>
+                            ${ans.isCorrect ? '<span class="text-xs font-bold text-emerald-500">ถูกต้อง</span>' : '<span class="text-xs font-bold text-rose-500">ผิด</span>'}
+                        </div>
+                        <p class="font-bold text-slate-800 mb-3">${q.question}</p>
+                        <div class="bg-slate-50 p-3 rounded-xl text-sm mb-2"><span class="text-slate-400 text-xs block mb-1">คำตอบที่ถูก:</span><span class="text-emerald-600 font-semibold">${q.options[q.correctIndex]}</span></div>
+                        <p class="text-xs text-slate-500 leading-relaxed"><i class="fa-solid fa-info-circle mr-1"></i> ${q.explanation}</p>
+                    </div>
+                `;
+            }).join('');
+        };
+
+        function spawnConfetti() {
+            const c = document.getElementById('confetti-canvas');
+            const ctx = c.getContext('2d');
+            c.width = c.parentElement.offsetWidth; c.height = c.parentElement.offsetHeight;
+            const p = Array.from({length: 50}, () => ({ x: c.width/2, y: c.height/2, vx: (Math.random()-0.5)*20, vy: (Math.random()-0.5)*20, c: ['#f43f5e', '#8b5cf6', '#10b981'][Math.floor(Math.random()*3)] }));
+            const anim = () => {
+                ctx.clearRect(0,0,c.width,c.height);
+                let active = false;
+                p.forEach((x) => { x.x+=x.vx; x.y+=x.vy; x.vy+=0.5; ctx.fillStyle=x.c; ctx.fillRect(x.x,x.y,5,5); if(x.y<c.height) active=true; });
+                if(active) requestAnimationFrame(anim);
+            };
+            anim();
+        }
+        window.backToResult = () => switchView('result');
+
+        // Start
+        initApp();
+    </script>
+</body>
+</html>
+
+
