@@ -396,13 +396,25 @@
             document.getElementById('diff-bg').style.transform = `translateX(${idx * 100}%)`;
         };
 
+        // --- MODIFIED FUNCTION ---
         window.setCount = (idx, val) => {
             document.getElementById('input-count').value = val;
             const items = document.querySelectorAll('#settings-panel .segmented-control:last-of-type .segmented-item');
+            const bg = document.getElementById('count-bg');
+            
             items.forEach(el => el.classList.remove('active'));
-            items[idx].classList.add('active');
-            document.getElementById('count-bg').style.transform = `translateX(${idx * 100}%)`;
+            
+            if (idx >= 0 && idx < items.length) {
+                // If index is valid (0, 1, 2), show and move the background
+                items[idx].classList.add('active');
+                bg.style.transform = `translateX(${idx * 100}%)`;
+                bg.style.opacity = '1';
+            } else {
+                // If index is invalid (e.g., -1 for custom number), hide the background
+                bg.style.opacity = '0';
+            }
         };
+        // --- END MODIFICATION ---
 
         function initSegmentedControls() {
             window.setDiff(1, 'ปานกลาง');
@@ -491,8 +503,9 @@
 
         window.generateQuizWrapper = async () => { await generateQuiz(0); };
 
+        // --- MODIFIED FUNCTION ---
         async function generateQuiz(retryCount) {
-            const topic = dom.inputs.topic.value.trim();
+            let topicInput = dom.inputs.topic.value.trim(); // Get raw input
             const apiKey = dom.inputs.apiKey.value.trim();
             
             if(!apiKey) { 
@@ -500,17 +513,43 @@
                 dom.inputs.apiKey.focus(); 
                 return showToast('กรุณาใส่ API Key ก่อนครับ', 'error'); 
             }
-            if(!topic) return showToast('กรุณาพิมพ์หัวข้อ', 'error');
+            if(!topicInput) return showToast('กรุณาพิมพ์หัวข้อ', 'error');
 
-            state.currentTopic = topic;
+            // --- START FIX: Parse count from input string ---
+            let qty = dom.inputs.count.value; // Default from segmented control
+            let topic = topicInput;
+            
+            // Regex to find a number followed by "ข้อ" (e.g., "10 ข้อ", "25ข้อ")
+            const countRegex = /(\d+)\s*ข้อ/g;
+            const match = countRegex.exec(topicInput);
+
+            if (match && match[1]) {
+                const extractedQty = parseInt(match[1], 10);
+                if (extractedQty > 0 && extractedQty <= 50) { // Limit to 50 questions
+                    qty = extractedQty.toString();
+                    // Clean the topic string by removing the question count part
+                    topic = topicInput.replace(countRegex, '').trim();
+                    
+                    // Update the segmented control to match (visual feedback)
+                    if (qty === '5') window.setCount(0, '5');
+                    else if (qty === '10') window.setCount(1, '10');
+                    else if (qty === '20') window.setCount(2, '20');
+                    else {
+                        // If it's a custom number, deselect all and update hidden input
+                        window.setCount(-1, qty); // Pass -1 to hide segmented UI
+                    }
+                }
+            }
+            // --- END FIX ---
+
+            state.currentTopic = topic; // Use the cleaned topic
             
             if(retryCount === 0) {
                 switchView('loading');
                 updateLoadingUI(1);
             }
 
-            const hist = getHistory(topic).slice(-30).join(', ');
-            const qty = dom.inputs.count.value;
+            const hist = getHistory(topic).slice(-30).join(', '); // Use cleaned topic
             const diff = dom.inputs.difficulty.value;
 
             // EXPERT PROMPT ENGINEERING: Bloom's Taxonomy Integration
@@ -536,6 +575,7 @@
             3. Structure: [{"question":"String","options":["String","String","String","String"],"correctIndex":Integer(0-3),"explanation":"String (Detailed reasoning)","concept":"String (Short tag)"}]
             4. Accuracy: Verify facts using Google Search tool if necessary. Ensure 100% correctness.
             `;
+            // --- END MODIFICATION ---
 
             try {
                 if(retryCount===0) setTimeout(() => updateLoadingUI(2), 2000);
@@ -599,7 +639,7 @@
             state.currentIndex = 0;
             state.score = 0;
             state.userAnswers = new Array(state.questions.length).fill(null);
-            dom.quiz.total.textContent = state.questions.length;
+            dom.quiz.total.textContent = state.questions.length; // This will now show the correct total
             switchView('quiz');
             renderQuestion();
         }
@@ -888,5 +928,4 @@
     </script>
 </body>
 </html>
-
 
