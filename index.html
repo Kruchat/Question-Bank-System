@@ -322,7 +322,13 @@
     <script type="module">
         // --- IMPORTS & STATE ---
         const { Document, Packer, Paragraph, TextRun, AlignmentType, HeadingLevel, PageBreak, Table, TableRow, TableCell, WidthType, BorderStyle } = docx;
-        let state = { questions: [], currentIndex: 0, score: 0, selectedOption: null, userAnswers: [], isAnswered: false, currentTopic: "" };
+        
+        // --- ‼️สำคัญ‼️ ---
+        // วาง "Web app URL" ที่ได้จาก Google Apps Script (Code.gs) ตรงนี้
+        const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxrPmn2h3GA6gTcPGSNbCoY0cG9S0oOkN7i_Xe6oTDxvzW6yvSmVU_b5IwEzyH5bFgR/exec"; 
+        // --- ‼️สำคัญ‼️ ---
+
+        let state = { questions: [], currentIndex: 0, score: 0, selectedOption: null, userAnswers: [], isAnswered: false, currentTopic: "", defaultApiKey: null };
         
         const topics = [
             {i:"🤖",t:"AI"}, {i:"🌏",t:"Climate"}, {i:"💰",t:"Crypto"}, {i:"🎬",t:"Soft Power"}, {i:"🔋",t:"EV"}, {i:"🚀",t:"SpaceX"}, {i:"🧬",t:"DNA"}, {i:"🧠",t:"Psych"}, {i:"🏛️",t:"History"}, {i:"⚖️",t:"Law"}
@@ -340,16 +346,21 @@
         };
 
         // --- INITIALIZATION ---
-        function initApp() {
+        // --- MODIFIED FUNCTION ---
+        async function initApp() {
             initMarquee();
             initSegmentedControls();
-            loadApiKey();
+            loadApiKey(); // This loads from localStorage
             renderHistoryChips();
             dom.inputs.topic.addEventListener('input', () => renderHistoryChips());
+            
+            // Fetch the default key
+            await fetchDefaultApiKey();
             
             // Auto focus for better UX
             setTimeout(() => dom.inputs.topic.focus(), 500);
         }
+        // --- END MODIFICATION ---
 
         // --- FULL SCREEN FEATURE ---
         window.toggleFullScreen = () => {
@@ -433,7 +444,17 @@
 
         window.toggleSettings = () => document.getElementById('settings-panel').classList.toggle('hidden');
         window.saveApiKey = (v) => { localStorage.setItem('quicktest_api_key', v.trim()); showToast(v?'บันทึกแล้ว':'ลบแล้ว'); };
-        window.loadApiKey = () => { const k = localStorage.getItem('quicktest_api_key'); if(k) dom.inputs.apiKey.value = k; };
+        
+        // --- MODIFIED FUNCTION ---
+        window.loadApiKey = () => { 
+            const k = localStorage.getItem('quicktest_api_key'); 
+            if(k) {
+                dom.inputs.apiKey.value = k; 
+                dom.inputs.apiKey.placeholder = "ใช้ Key ที่บันทึกไว้ (localStorage)";
+            }
+        };
+        // --- END MODIFICATION ---
+
         window.toggleKeyVisibility = () => { const el = dom.inputs.apiKey; el.type = el.type==='password'?'text':'password'; };
         window.setTopic = (t) => { dom.inputs.topic.value = t; dom.inputs.topic.focus(); renderHistoryChips(); };
         window.restartApp = () => { dom.inputs.topic.value=''; switchView('setup'); };
@@ -473,6 +494,43 @@
         }
         window.clearHistory = (t) => { localStorage.removeItem(`qt_hist_${t.trim().toLowerCase()}`); renderHistoryChips(); showToast('ลบประวัติแล้ว'); };
 
+        // --- NEW FUNCTION ---
+        async function fetchDefaultApiKey() {
+            if (!APPS_SCRIPT_URL.startsWith("https://")) {
+                console.warn("APPS_SCRIPT_URL is not set. Default API key will not be loaded.");
+                return;
+            }
+
+            try {
+                // แสดง Toast กำลังโหลด
+                showToast('กำลังโหลด Key เริ่มต้น...', 'success');
+
+                const response = await fetch(APPS_SCRIPT_URL);
+                if (!response.ok) throw new Error(`Server responded with ${response.status}`);
+                
+                const data = await response.json();
+                
+                if (data && data.apiKey && data.apiKey !== "YOUR_GOOGLE_AI_API_KEY_HERE") {
+                    state.defaultApiKey = data.apiKey;
+                    console.log("Default API key loaded successfully.");
+                    // Update placeholder ถ้าผู้ใช้ยังไม่ได้ใส่ Key ของตัวเอง
+                    if (!dom.inputs.apiKey.value) {
+                        dom.inputs.apiKey.placeholder = "ใช้ Key เริ่มต้น (Default) อยู่";
+                    }
+                    showToast('โหลด Key เริ่มต้นสำเร็จ', 'success');
+                } else if (data.apiKey === "YOUR_GOOGLE_AI_API_KEY_HERE") {
+                    console.error("Please set the API key in your Code.gs file.");
+                    showToast('Key เริ่มต้นยังไม่ได้ตั้งค่าใน Code.gs', 'error');
+                } else {
+                    throw new Error("Invalid API key format received from Apps Script.");
+                }
+            } catch (error) {
+                console.error("Failed to fetch default API key:", error);
+                showToast('ไม่สามารถโหลด API Key เริ่มต้นได้', 'error');
+            }
+        }
+        // --- END NEW FUNCTION ---
+
         // --- AI LOGIC (IMPROVED) ---
         function updateLoadingUI(step) {
             const steps = [1, 2, 3];
@@ -506,13 +564,24 @@
         // --- MODIFIED FUNCTION ---
         async function generateQuiz(retryCount) {
             let topicInput = dom.inputs.topic.value.trim(); // Get raw input
-            const apiKey = dom.inputs.apiKey.value.trim();
             
+            // --- START MODIFICATION ---
+            // 1. Get user's key from input (ที่บันทึกใน localStorage)
+            let userApiKey = dom.inputs.apiKey.value.trim();
+            
+            // 2. Decide which key to use: Prioritize user's key, fallback to default.
+            //    (ใช้ Key ที่ผู้ใช้กรอกก่อน ถ้าไม่มี ให้ใช้ Key เริ่มต้น)
+            const apiKey = userApiKey ? userApiKey : state.defaultApiKey;
+            // --- END MODIFICATION ---
+
             if(!apiKey) { 
+                // If STILL no key (neither user-provided nor default), then show error.
                 document.getElementById('settings-panel').classList.remove('hidden'); 
                 dom.inputs.apiKey.focus(); 
-                return showToast('กรุณาใส่ API Key ก่อนครับ', 'error'); 
+                // Updated error message
+                return showToast('กรุณาใส่ API Key หรือตั้งค่า Key เริ่มต้น', 'error'); 
             }
+            
             if(!topicInput) return showToast('กรุณาพิมพ์หัวข้อ', 'error');
 
             // --- START FIX: Parse count from input string ---
