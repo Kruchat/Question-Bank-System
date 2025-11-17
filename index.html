@@ -180,7 +180,10 @@
                         <div class="relative">
                             <input type="password" id="input-api-key" placeholder="วาง API Key ที่นี่..." onchange="saveApiKey(this.value)" 
                                 class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-mono text-slate-600 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition">
-                            <button onclick="toggleKeyVisibility()" class="absolute right-3 top-3 text-slate-400 hover:text-indigo-500"><i class="fa-solid fa-eye"></i></button>
+                            <!-- MODIFIED: Adjusted button position -->
+                            <button onclick="toggleKeyVisibility()" class="absolute right-10 top-3 text-slate-400 hover:text-indigo-500 pr-2" title="แสดง/ซ่อน Key"><i class="fa-solid fa-eye"></i></button>
+                            <!-- NEW BUTTON: Clear stored API Key -->
+                            <button onclick="clearUserApiKey()" class="absolute right-3 top-3 text-slate-400 hover:text-rose-500" title="ล้าง Key ที่บันทึกไว้"><i class="fa-solid fa-trash-can"></i></button>
                         </div>
                         <div class="flex justify-between items-center mt-2">
                             <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-[10px] text-indigo-500 underline decoration-dotted">รับ Key ฟรี</a>
@@ -456,6 +459,22 @@
         // --- END MODIFICATION ---
 
         window.toggleKeyVisibility = () => { const el = dom.inputs.apiKey; el.type = el.type==='password'?'text':'password'; };
+        
+        // --- NEW FUNCTION ---
+        window.clearUserApiKey = () => {
+            dom.inputs.apiKey.value = ""; // Clear the input field
+            localStorage.removeItem('quicktest_api_key'); // Clear storage
+            
+            // Update placeholder to show default is now active
+            if(state.defaultApiKey) {
+                dom.inputs.apiKey.placeholder = "ใช้ Key เริ่มต้น (Default) อยู่";
+            } else {
+                dom.inputs.apiKey.placeholder = "วาง API Key ที่นี่...";
+            }
+            showToast('ลบ Key ที่บันทึกไว้แล้ว', 'success');
+        }
+        // --- END NEW FUNCTION ---
+
         window.setTopic = (t) => { dom.inputs.topic.value = t; dom.inputs.topic.focus(); renderHistoryChips(); };
         window.restartApp = () => { dom.inputs.topic.value=''; switchView('setup'); };
         window.backToResult = () => switchView('result');
@@ -497,7 +516,11 @@
         // --- NEW FUNCTION ---
         async function fetchDefaultApiKey() {
             if (!APPS_SCRIPT_URL.startsWith("https://")) {
+                // --- MODIFICATION ---
+                // If the URL is still the placeholder, show a clear error toast.
                 console.warn("APPS_SCRIPT_URL is not set. Default API key will not be loaded.");
+                showToast('ยังไม่ได้ตั้งค่า APPS_SCRIPT_URL', 'error'); 
+                // --- END MODIFICATION ---
                 return;
             }
 
