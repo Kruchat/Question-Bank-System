@@ -568,12 +568,19 @@
             Difficulty Level: ${diff}.
             Instruction: ${taxonomyInstruction}
             Context: User has already seen these concepts: [${hist}]. DO NOT REPEAT THEM. Generate FRESH, UNIQUE content.
+
+            --- EXPERT REVIEW MANDATE ---
+            A. You MUST use the Google Search tool. This is not optional.
+            B. Every question, option, and explanation MUST be fact-checked against reliable internet sources.
+            C. DO NOT invent information or create questions "from memory." All content must be verifiable.
+            D. The accuracy of the questions is the highest priority.
+            --- END MANDATE ---
             
             Constraints:
             1. Language: THAI only (except specific technical terms).
             2. Format: Valid JSON Array ONLY. NO markdown code blocks (no \`\`\`).
             3. Structure: [{"question":"String","options":["String","String","String","String"],"correctIndex":Integer(0-3),"explanation":"String (Detailed reasoning)","concept":"String (Short tag)"}]
-            4. Accuracy: Verify facts using Google Search tool if necessary. Ensure 100% correctness.
+            4. Accuracy: 100% correctness is mandatory. All facts MUST be grounded in the search results.
             `;
             // --- END MODIFICATION ---
 
@@ -928,4 +935,3 @@
     </script>
 </body>
 </html>
-
